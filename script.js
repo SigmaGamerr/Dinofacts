@@ -21,17 +21,16 @@ const MAX_GAP_PX = 320;             // optional upper bound for variety
 const MIN_SPAWN_MS = 1200;          // base spawn timing window
 const MAX_SPAWN_MS = 2200;
 
-// Jump function
+// Jump function (restored original values)
 function jump() {
   if (isJumping || isCrouching) return;
   isJumping = true;
 
   let position = 0;
-  let velocity = 12;
-  const gravity = 0.6;
+  let velocity = 12;   // original jump strength
+  const gravity = 0.6; // original gravity
 
   const jumpInterval = setInterval(() => {
-    // If crouching while in air, increase gravity (fast fall)
     const effectiveGravity = isCrouching ? 1.2 : gravity;
 
     if (position <= 0 && velocity < 0) {
@@ -45,7 +44,7 @@ function jump() {
       velocity -= effectiveGravity;
       dino.style.bottom = position + 'px';
     }
-  }, TICK_MS);
+  }, 20);
 }
 
 // Crouch
