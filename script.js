@@ -1,245 +1,217 @@
-// ===== Canvas setup =====
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+const dino = document.querySelector('.dino');
+const gameContainer = document.querySelector('.game-container');
+const gameOverText = document.querySelector('.game-over');
+const restartBtn = document.getElementById('restart-btn');
+const scoreDisplay = document.querySelector('.score');
 
-// ===== Dino =====
-const dino = {
-  x: 60,
-  y: 0,                // will be set to ground on init
-  width: 44,
-  height: 44,
-  jumping: false,
-  velocityY: 0
-};
-
-// ===== World =====
-const groundY = () => canvas.height - 60;   // ground baseline
-const gravity = 0.7;
-let gameSpeed = 4;                           // base speed, scales up
-let isPaused = false;
+let isJumping = false;
+let isCrouching = false;
 let isGameOver = false;
-
-// ===== Obstacles =====
 let obstacles = [];
-let lastSpawnTime = 0;
-let spawnIntervalMs = 1400;                  // base interval, randomized each spawn
-const MIN_GAP = 180;                         // minimum pixels between obstacles (fairness)
-const MAX_GAP = 320;                         // maximum gap for variety
-const obstacleTypes = [
-  { width: 26, height: 46 },                 // small cactus
-  { width: 34, height: 54 },                 // medium cactus
-  { width: 48, height: 64 }                  // large cactus
-];
-
-// ===== Score / Difficulty =====
 let score = 0;
-let highScore = 0;
-let frames = 0;
+let scoreInterval;
 
-// ===== Helpers =====
-function resetGame() {
-  obstacles = [];
-  score = 0;
-  frames = 0;
-  gameSpeed = 4;
-  isGameOver = false;
-  dino.y = groundY() - dino.height;
-  dino.jumping = false;
-  dino.velocityY = 0;
-  lastSpawnTime = 0;
-  spawnIntervalMs = 1400;
-}
+// ---- Tuning constants ----
+const CONTAINER_WIDTH = 800;        // matches your starting left
+const OBSTACLE_START_X = 800;       // where obstacles spawn
+const MOVE_SPEED_PX_PER_TICK = 5;   // 5px every 20ms
+const TICK_MS = 20;                 // update interval
+const MIN_GAP_PX = 180;             // minimum gap so dino can fit/jump
+const MAX_GAP_PX = 320;             // optional upper bound for variety
+const MIN_SPAWN_MS = 1200;          // base spawn timing window
+const MAX_SPAWN_MS = 2200;
 
-function fairGapReady() {
-  if (obstacles.length === 0) return true;
-  const last = obstacles[obstacles.length - 1];
-  // Distance from last obstacle's current x to right edge
-  const gap = canvas.width - last.x;
-  return gap > MIN_GAP;
-}
-
-// Randomize next spawn interval with bounds
-function randomizeSpawnInterval() {
-  spawnIntervalMs = 1100 + Math.random() * 800; // 1100–1900ms
-}
-
-// ===== Input =====
+// Jump function
 function jump() {
-  if (isGameOver || isPaused) return;
-  if (!dino.jumping) {
-    dino.jumping = true;
-    dino.velocityY = -13.5; // jump strength
+  if (isJumping || isCrouching) return;
+  isJumping = true;
+
+  let position = 0;
+  let velocity = 12;
+  const gravity = 0.6;
+
+  const jumpInterval = setInterval(() => {
+    // If crouching while in air, increase gravity (fast fall)
+    const effectiveGravity = isCrouching ? 1.2 : gravity;
+
+    if (position <= 0 && velocity < 0) {
+      clearInterval(jumpInterval);
+      position = 0;
+      dino.style.bottom = position + 'px';
+      isJumping = false;
+    } else {
+      position += velocity;
+      velocity -= gravity;
+      velocity -= effectiveGravity;
+      dino.style.bottom = position + 'px';
+    }
+  }, TICK_MS);
+}
+
+// Crouch
+function crouch(start) {
+  if (start) {
+    isCrouching = true;
+    dino.classList.add('crouch');
+  } else {
+    isCrouching = false;
+    dino.classList.remove('crouch');
   }
 }
 
-function togglePause() {
+// ---- Gap helpers ----
+function getLastObstacle() {
+  if (obstacles.length === 0) return null;
+  return obstacles[obstacles.length - 1];
+}
+
+// Distance from last obstacle’s right edge to spawn point (800px)
+function currentGapToSpawn() {
+  const last = getLastObstacle();
+  if (!last) return Infinity;
+  const rect = last.getBoundingClientRect();
+  // Convert rect.left from viewport to gameContainer coordinates using computed left
+  // Easier: read inline style left, which you control during movement
+  const left = parseFloat(last.style.left || OBSTACLE_START_X);
+  const width = last.offsetWidth || 20;
+  const lastRight = left + width;
+  const gap = OBSTACLE_START_X - lastRight;
+  return gap;
+}
+
+function randomSpawnDelay() {
+  return MIN_SPAWN_MS + Math.random() * (MAX_SPAWN_MS - MIN_SPAWN_MS);
+}
+
+// ---- Fair spawn scheduler ----
+function scheduleNextSpawn() {
+  const delay = randomSpawnDelay();
+  setTimeout(generateObstacle, delay);
+}
+
+// Generate obstacles (fair spacing)
+function generateObstacle() {
   if (isGameOver) return;
-  isPaused = !isPaused;
-}
 
-function handleKeydown(e) {
-  if (e.code === "Space" || e.code === "ArrowUp") {
-    e.preventDefault();
-    jump();
-  } else if (e.code === "KeyP") {
-    togglePause();
-  } else if (e.code === "KeyR") {
-    resetGame();
+  // If the last obstacle is too close to the spawn point, wait a bit and try again
+  const gap = currentGapToSpawn();
+  if (gap < MIN_GAP_PX) {
+    // Poll until the gap is big enough; short delay keeps spawns responsive
+    setTimeout(generateObstacle, 120);
+    return;
   }
-}
-document.addEventListener("keydown", handleKeydown);
 
-// ===== Physics =====
-function updateDino() {
-  dino.y += dino.velocityY;
-  dino.velocityY += gravity;
+  const obstacle = document.createElement('div');
+  obstacle.classList.add('obstacle');
 
-  // Ground collision
-  const groundLine = groundY();
-  if (dino.y >= groundLine - dino.height) {
-    dino.y = groundLine - dino.height;
-    dino.jumping = false;
+  const type = Math.random() < 0.7 ? 'cactus' : 'bird';
+  obstacle.classList.add(type);
+
+  if (type === 'cactus') {
+    const clusterSize = Math.floor(Math.random() * 3) + 1;
+    obstacle.style.width = (20 * clusterSize) + 'px';
+  } else {
+    // birds fly higher so crouch matters; set a sensible vertical position via CSS or here
+    // Example: obstacle.style.bottom = '40px'; // uncomment if you control bird height via JS
   }
+
+  obstacle.style.left = OBSTACLE_START_X + 'px';
+  gameContainer.appendChild(obstacle);
+  obstacles.push(obstacle);
+
+  moveObstacle(obstacle);
+
+  // Schedule the next spawn (still random, but fairness is enforced above)
+  scheduleNextSpawn();
 }
 
-// ===== Spawning =====
-function spawnObstacle(timestamp) {
-  if (timestamp - lastSpawnTime < spawnIntervalMs) return;
-  if (!fairGapReady()) return;
-
-  // Pick a random obstacle type
-  const type = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
-  const obHeight = type.height;
-  const obWidth = type.width;
-
-  // Place at ground
-  obstacles.push({
-    x: canvas.width,
-    y: groundY() - obHeight,
-    width: obWidth,
-    height: obHeight,
-    passed: false
-  });
-
-  lastSpawnTime = timestamp;
-
-  // Randomize spawn interval AND enforce max gap fairness simultaneously
-  randomizeSpawnInterval();
-}
-
-// ===== Obstacles update =====
-function updateObstacles() {
-  for (let ob of obstacles) {
-    ob.x -= gameSpeed;
-
-    // Mark as passed for scoring
-    if (!ob.passed && ob.x + ob.width < dino.x) {
-      ob.passed = true;
-      score += 1;
-      // Gradual difficulty bump
-      if (score % 5 === 0) {
-        gameSpeed = Math.min(gameSpeed + 0.4, 12); // cap top speed
-      }
+// Move obstacle
+function moveObstacle(obstacle) {
+  let position = OBSTACLE_START_X;
+  const moveInterval = setInterval(() => {
+    if (isGameOver) {
+      clearInterval(moveInterval);
+      return;
     }
-  }
-  // Remove off-screen obstacles
-  obstacles = obstacles.filter(ob => ob.x + ob.width > 0);
-}
+    position -= MOVE_SPEED_PX_PER_TICK;
+    obstacle.style.left = position + 'px';
 
-// ===== Collision (with slight padding forgiveness) =====
-function collide(a, b) {
-  const pad = 4; // makes hitbox a tiny bit smaller for fairness
-  return (
-    a.x + pad < b.x + b.width &&
-    a.x + a.width - pad > b.x &&
-    a.y + pad < b.y + b.height &&
-    a.y + a.height - pad > b.y
-  );
-}
-
-function checkCollision() {
-  for (let ob of obstacles) {
-    if (collide(dino, ob)) {
-      isGameOver = true;
-      highScore = Math.max(highScore, score);
-      break;
+    if (position < -50) {
+      obstacle.remove();
+      obstacles = obstacles.filter(o => o !== obstacle);
+      clearInterval(moveInterval);
     }
+
+    checkCollision(obstacle);
+  }, TICK_MS);
+}
+
+// Collision detection
+function checkCollision(obstacle) {
+  const dinoRect = dino.getBoundingClientRect();
+  const obsRect = obstacle.getBoundingClientRect();
+
+  // small forgiveness padding to reduce unfair hits
+  const pad = 3;
+
+  if (
+    dinoRect.right - pad > obsRect.left &&
+    dinoRect.left + pad < obsRect.right &&
+    dinoRect.bottom - pad > obsRect.top &&
+    dinoRect.top + pad < obsRect.bottom
+  ) {
+    isGameOver = true;
+    gameOverText.style.display = 'block';
+    restartBtn.style.display = 'block';
+    obstacles.forEach(o => o.remove());
+    obstacles = [];
+    clearInterval(scoreInterval);
   }
 }
 
-// ===== Draw =====
-function drawBackground() {
-  // Sky
-  ctx.fillStyle = "#f7f7f7";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Ground line
-  ctx.fillStyle = "#444";
-  ctx.fillRect(0, groundY() + 40, canvas.width, 2);
-
-  // Parallax ground dots
-  ctx.fillStyle = "#888";
-  for (let i = 0; i < canvas.width; i += 28) {
-    ctx.fillRect((i - (frames % 28)), groundY() + 20, 6, 2);
+// Controls
+document.addEventListener('keydown', (event) => {
+  if (event.key === ' ' || event.key === 'ArrowUp') {
+    if (!isGameOver) jump();
   }
-}
-
-function drawDino() {
-  ctx.fillStyle = "#2e7d32";
-  ctx.fillRect(dino.x, dino.y, dino.width, dino.height);
-}
-
-function drawObstacles() {
-  ctx.fillStyle = "#b71c1c";
-  for (let ob of obstacles) {
-    ctx.fillRect(ob.x, ob.y, ob.width, ob.height);
+  if (event.key === 'ArrowDown') {
+    if (!isGameOver) crouch(true);
   }
-}
-
-function drawHUD() {
-  ctx.fillStyle = "#333";
-  ctx.font = "16px monospace";
-  ctx.fillText(`Score: ${score}`, 16, 24);
-  ctx.fillText(`High: ${highScore}`, 16, 44);
-  ctx.fillText(`Speed: ${gameSpeed.toFixed(1)}`, 16, 64);
-  if (isPaused) ctx.fillText("Paused (P)", canvas.width - 120, 24);
-  if (isGameOver) {
-    ctx.fillStyle = "#000";
-    ctx.font = "20px monospace";
-    ctx.fillText("Game Over! Press R to reset", canvas.width / 2 - 140, canvas.height / 2);
+});
+document.addEventListener('keyup', (event) => {
+  if (event.key === 'ArrowDown') {
+    crouch(false);
   }
+});
+
+// Restart button logic
+restartBtn.addEventListener('click', () => {
+  isGameOver = false;
+  gameOverText.style.display = 'none';
+  restartBtn.style.display = 'none';
+  dino.style.bottom = '0px';
+  score = 0;
+  scoreDisplay.textContent = "Score: 0";
+
+  // Clean up existing obstacles and timers
+  obstacles.forEach(o => o.remove());
+  obstacles = [];
+
+  startScore();
+  scheduleNextSpawn();
+});
+
+// Score counter
+function startScore() {
+  clearInterval(scoreInterval);
+  scoreInterval = setInterval(() => {
+    if (!isGameOver) {
+      score++;
+      scoreDisplay.textContent = "Score: " + score;
+    }
+  }, 100);
 }
 
-// ===== Game loop =====
-function update(timestamp) {
-  if (isPaused || isGameOver) return;
-
-  frames++;
-  updateDino();
-  spawnObstacle(timestamp);
-  updateObstacles();
-  checkCollision();
-}
-
-function render() {
-  drawBackground();
-  drawDino();
-  drawObstacles();
-  drawHUD();
-}
-
-function loop(timestamp) {
-  update(timestamp);
-  render();
-  requestAnimationFrame(loop);
-}
-
-// ===== Init =====
-function init() {
-  // Ensure dino starts on ground
-  dino.y = groundY() - dino.height;
-  resetGame();
-  requestAnimationFrame(loop);
-}
-
-init();
+// Start game
+startScore();
+scheduleNextSpawn();
