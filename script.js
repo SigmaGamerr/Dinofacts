@@ -21,6 +21,9 @@ function jump() {
   const gravity = 0.6;
 
   const jumpInterval = setInterval(() => {
+    // If crouching while in air, increase gravity (fast fall)
+    const effectiveGravity = isCrouching ? 1.2 : gravity;
+
     if (position <= 0 && velocity < 0) {
       clearInterval(jumpInterval);
       position = 0;
@@ -28,7 +31,7 @@ function jump() {
       isJumping = false;
     } else {
       position += velocity;
-      velocity -= gravity;
+      velocity -= effectiveGravity;
       dino.style.bottom = position + 'px';
     }
   }, 20);
