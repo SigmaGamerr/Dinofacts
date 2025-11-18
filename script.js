@@ -11,7 +11,7 @@ let obstacles = [];
 let score = 0;
 let scoreInterval;
 
-// ---- spacing constants ----
+// ---- spacing constant ----
 const MIN_GAP_PX = 180; // minimum horizontal gap so dino can fit/jump
 
 // Jump function
