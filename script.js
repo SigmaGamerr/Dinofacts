@@ -2,19 +2,22 @@ const dino = document.querySelector('.dino');
 const gameContainer = document.querySelector('.game-container');
 const gameOverText = document.querySelector('.game-over');
 const restartBtn = document.getElementById('restart-btn');
+const scoreDisplay = document.querySelector('.score');
 
 let isJumping = false;
 let isCrouching = false;
 let isGameOver = false;
 let obstacles = [];
+let score = 0;
+let scoreInterval;
 
-// Jump function (smooth arc)
+// Jump function
 function jump() {
   if (isJumping || isCrouching) return;
   isJumping = true;
 
   let position = 0;
-  let velocity = 12; // jump speed
+  let velocity = 12;
   const gravity = 0.6;
 
   const jumpInterval = setInterval(() => {
@@ -31,7 +34,7 @@ function jump() {
   }, 20);
 }
 
-// Crouch function
+// Crouch
 function crouch(start) {
   if (start) {
     isCrouching = true;
@@ -42,19 +45,18 @@ function crouch(start) {
   }
 }
 
-// Generate obstacles randomly
+// Generate obstacles
 function generateObstacle() {
   if (isGameOver) return;
 
   const obstacle = document.createElement('div');
   obstacle.classList.add('obstacle');
 
-  const type = Math.random() < 0.7 ? 'cactus' : 'bird'; // 70% cactus, 30% bird
+  const type = Math.random() < 0.7 ? 'cactus' : 'bird';
   obstacle.classList.add(type);
 
-  // Multiple cactus cluster
   if (type === 'cactus') {
-    const clusterSize = Math.floor(Math.random() * 3) + 1; // 1–3 cactus
+    const clusterSize = Math.floor(Math.random() * 3) + 1;
     obstacle.style.width = 20 * clusterSize + 'px';
   }
 
@@ -63,7 +65,7 @@ function generateObstacle() {
   obstacles.push(obstacle);
 
   moveObstacle(obstacle);
-  const nextSpawn = Math.random() * 2000 + 1500; // random spawn time
+  const nextSpawn = Math.random() * 2000 + 1500;
   setTimeout(generateObstacle, nextSpawn);
 }
 
@@ -104,6 +106,7 @@ function checkCollision(obstacle) {
     restartBtn.style.display = 'block';
     obstacles.forEach(o => o.remove());
     obstacles = [];
+    clearInterval(scoreInterval);
   }
 }
 
@@ -116,21 +119,34 @@ document.addEventListener('keydown', (event) => {
     if (!isGameOver) crouch(true);
   }
 });
-
 document.addEventListener('keyup', (event) => {
   if (event.key === 'ArrowDown') {
     crouch(false);
   }
 });
 
-// Restart
+// Restart button logic
 restartBtn.addEventListener('click', () => {
   isGameOver = false;
   gameOverText.style.display = 'none';
   restartBtn.style.display = 'none';
   dino.style.bottom = '0px';
+  score = 0;
+  scoreDisplay.textContent = "Score: 0";
+  startScore();
   generateObstacle();
 });
 
+// Score counter
+function startScore() {
+  scoreInterval = setInterval(() => {
+    if (!isGameOver) {
+      score++;
+      scoreDisplay.textContent = "Score: " + score;
+    }
+  }, 100);
+}
+
 // Start game
+startScore();
 generateObstacle();
