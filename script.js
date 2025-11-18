@@ -1,57 +1,136 @@
 const dino = document.querySelector('.dino');
-const tree = document.querySelector('.tree');
+const gameContainer = document.querySelector('.game-container');
 const gameOverText = document.querySelector('.game-over');
-let isJumping = false;
-let isGameOver = false;
+const restartBtn = document.getElementById('restart-btn');
 
-// Dino jump function
+let isJumping = false;
+let isCrouching = false;
+let isGameOver = false;
+let obstacles = [];
+
+// Jump function (smooth arc)
 function jump() {
-  if (isJumping) return; // Prevent multiple jumps
+  if (isJumping || isCrouching) return;
   isJumping = true;
 
   let position = 0;
-  const upInterval = setInterval(() => {
-    if (position >= 150) {
-      clearInterval(upInterval);
-      const downInterval = setInterval(() => {
-        if (position <= 0) {
-          clearInterval(downInterval);
-          isJumping = false;
-        }
-        position -= 10;
-        dino.style.bottom = position + 'px';
-      }, 20);
+  let velocity = 12; // jump speed
+  const gravity = 0.6;
+
+  const jumpInterval = setInterval(() => {
+    if (position <= 0 && velocity < 0) {
+      clearInterval(jumpInterval);
+      position = 0;
+      dino.style.bottom = position + 'px';
+      isJumping = false;
+    } else {
+      position += velocity;
+      velocity -= gravity;
+      dino.style.bottom = position + 'px';
     }
-    position += 10;
-    dino.style.bottom = position + 'px';
+  }, 20);
+}
+
+// Crouch function
+function crouch(start) {
+  if (start) {
+    isCrouching = true;
+    dino.classList.add('crouch');
+  } else {
+    isCrouching = false;
+    dino.classList.remove('crouch');
+  }
+}
+
+// Generate obstacles randomly
+function generateObstacle() {
+  if (isGameOver) return;
+
+  const obstacle = document.createElement('div');
+  obstacle.classList.add('obstacle');
+
+  const type = Math.random() < 0.7 ? 'cactus' : 'bird'; // 70% cactus, 30% bird
+  obstacle.classList.add(type);
+
+  // Multiple cactus cluster
+  if (type === 'cactus') {
+    const clusterSize = Math.floor(Math.random() * 3) + 1; // 1–3 cactus
+    obstacle.style.width = 20 * clusterSize + 'px';
+  }
+
+  obstacle.style.left = '800px';
+  gameContainer.appendChild(obstacle);
+  obstacles.push(obstacle);
+
+  moveObstacle(obstacle);
+  const nextSpawn = Math.random() * 2000 + 1500; // random spawn time
+  setTimeout(generateObstacle, nextSpawn);
+}
+
+// Move obstacle
+function moveObstacle(obstacle) {
+  let position = 800;
+  const moveInterval = setInterval(() => {
+    if (isGameOver) {
+      clearInterval(moveInterval);
+      return;
+    }
+    position -= 5;
+    obstacle.style.left = position + 'px';
+
+    if (position < -50) {
+      obstacle.remove();
+      obstacles = obstacles.filter(o => o !== obstacle);
+      clearInterval(moveInterval);
+    }
+
+    checkCollision(obstacle);
   }, 20);
 }
 
 // Collision detection
-function checkCollision() {
+function checkCollision(obstacle) {
   const dinoRect = dino.getBoundingClientRect();
-  const treeRect = tree.getBoundingClientRect();
+  const obsRect = obstacle.getBoundingClientRect();
 
   if (
-    dinoRect.right > treeRect.left &&
-    dinoRect.left < treeRect.right &&
-    dinoRect.bottom > treeRect.top &&
-    dinoRect.top < treeRect.bottom
+    dinoRect.right > obsRect.left &&
+    dinoRect.left < obsRect.right &&
+    dinoRect.bottom > obsRect.top &&
+    dinoRect.top < obsRect.bottom
   ) {
     isGameOver = true;
-    tree.style.animation = 'none';
     gameOverText.style.display = 'block';
+    restartBtn.style.display = 'block';
+    obstacles.forEach(o => o.remove());
+    obstacles = [];
   }
 }
 
-// Listen for key presses
+// Controls
 document.addEventListener('keydown', (event) => {
   if (event.key === ' ' || event.key === 'ArrowUp') {
     if (!isGameOver) jump();
   }
+  if (event.key === 'ArrowDown') {
+    if (!isGameOver) crouch(true);
+  }
 });
 
-// Run collision detection continuously
-setInterval(() => {
-  if (!isGameOver) checkCollision();
-}, 20);
+document.addEventListener('keyup', (event) => {
+  if (event.key === 'ArrowDown') {
+    crouch(false);
+  }
+});
+
+// Restart
+restartBtn.addEventListener('click', () => {
+  isGameOver = false;
+  gameOverText.style.display = 'none';
+  restartBtn.style.display = 'none';
+  dino.style.bottom = '0px';
+  generateObstacle();
+});
+
+// Start game
+generateObstacle();
