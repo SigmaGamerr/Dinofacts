@@ -16,6 +16,15 @@ body {
   overflow: hidden;
 }
 
+/* Score */
+.score {
+  position: absolute;
+  top: 5px;
+  right: 10px;
+  font-size: 18px;
+  color: #333;
+}
+
 /* Dino */
 .dino {
   position: absolute;
@@ -26,9 +35,8 @@ body {
   background: #333;
   transition: height 0.2s;
 }
-
 .dino.crouch {
-  height: 25px; /* crouching makes dino shorter */
+  height: 25px;
 }
 
 /* Ground */
@@ -46,17 +54,15 @@ body {
   bottom: 0;
   background: #333;
 }
-
 .cactus {
   width: 20px;
   height: 40px;
 }
-
 .bird {
   width: 40px;
   height: 20px;
   background: #555;
-  bottom: 60px; /* birds fly above ground */
+  bottom: 60px;
 }
 
 /* Game Over text */
