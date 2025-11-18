@@ -35,11 +35,11 @@ function checkCollision() {
   if (
     dinoRect.right > treeRect.left &&
     dinoRect.left < treeRect.right &&
-    dinoRect.bottom > treeRect.top
+    dinoRect.bottom > treeRect.top &&
+    dinoRect.top < treeRect.bottom
   ) {
     isGameOver = true;
     tree.style.animation = 'none';
-    tree.style.right = treeRect.right + 'px';
     gameOverText.style.display = 'block';
   }
 }
