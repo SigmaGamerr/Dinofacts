@@ -52,17 +52,22 @@ body {
 .obstacle {
   position: absolute;
   bottom: 0;
+  width: 20px;   /* default width so it's visible */
+  height: 20px;  /* default height so it's visible */
   background: #333;
 }
+
 .cactus {
   width: 20px;
   height: 40px;
+  background: #333; /* dark block cactus */
 }
+
 .bird {
   width: 40px;
   height: 20px;
-  background: #555;
-  bottom: 60px;
+  background: #555; /* lighter block bird */
+  bottom: 60px;     /* flies above ground */
 }
 
 /* Game Over text */
