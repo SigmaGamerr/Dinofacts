@@ -11,7 +11,10 @@ let obstacles = [];
 let score = 0;
 let scoreInterval;
 
-// Jump function
+// ---- spacing constant ----
+const MIN_GAP_PX = 180; // minimum horizontal gap so dino can fit/jump
+
+// Jump function (unchanged)
 function jump() {
   if (isJumping || isCrouching) return;
   isJumping = true;
@@ -34,7 +37,7 @@ function jump() {
   }, 20);
 }
 
-// Crouch
+// Crouch (unchanged)
 function crouch(start) {
   if (start) {
     isCrouching = true;
@@ -45,9 +48,26 @@ function crouch(start) {
   }
 }
 
-// Generate obstacles
+// Helper: check gap before spawning
+function canSpawn() {
+  if (obstacles.length === 0) return true;
+  const last = obstacles[obstacles.length - 1];
+  const lastLeft = parseFloat(last.style.left);
+  const lastWidth = last.offsetWidth;
+  const lastRight = lastLeft + lastWidth;
+  const gap = 800 - lastRight; // distance from last obstacle’s right edge to spawn point
+  return gap >= MIN_GAP_PX;
+}
+
+// Generate obstacles (spacing-aware)
 function generateObstacle() {
   if (isGameOver) return;
+
+  // enforce spacing
+  if (!canSpawn()) {
+    setTimeout(generateObstacle, 100); // retry shortly until gap is big enough
+    return;
+  }
 
   const obstacle = document.createElement('div');
   obstacle.classList.add('obstacle');
@@ -65,11 +85,12 @@ function generateObstacle() {
   obstacles.push(obstacle);
 
   moveObstacle(obstacle);
+
   const nextSpawn = Math.random() * 2000 + 1500;
   setTimeout(generateObstacle, nextSpawn);
 }
 
-// Move obstacle
+// Move obstacle (unchanged)
 function moveObstacle(obstacle) {
   let position = 800;
   const moveInterval = setInterval(() => {
@@ -90,7 +111,7 @@ function moveObstacle(obstacle) {
   }, 20);
 }
 
-// Collision detection
+// Collision detection (unchanged)
 function checkCollision(obstacle) {
   const dinoRect = dino.getBoundingClientRect();
   const obsRect = obstacle.getBoundingClientRect();
@@ -110,7 +131,7 @@ function checkCollision(obstacle) {
   }
 }
 
-// Controls
+// Controls (unchanged)
 document.addEventListener('keydown', (event) => {
   if (event.key === ' ' || event.key === 'ArrowUp') {
     if (!isGameOver) jump();
@@ -125,7 +146,7 @@ document.addEventListener('keyup', (event) => {
   }
 });
 
-// Restart button logic
+// Restart button logic (unchanged)
 restartBtn.addEventListener('click', () => {
   isGameOver = false;
   gameOverText.style.display = 'none';
@@ -137,7 +158,7 @@ restartBtn.addEventListener('click', () => {
   generateObstacle();
 });
 
-// Score counter
+// Score counter (unchanged)
 function startScore() {
   scoreInterval = setInterval(() => {
     if (!isGameOver) {
@@ -147,6 +168,6 @@ function startScore() {
   }, 100);
 }
 
-// Start game
+// Start game (unchanged)
 startScore();
 generateObstacle();
