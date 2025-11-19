@@ -11,9 +11,6 @@ let obstacles = [];
 let score = 0;
 let scoreInterval;
 
-// ---- spacing constant ----
-const MIN_GAP_PX = 180; // minimum horizontal gap so dino can fit/jump
-
 // Jump function
 function jump() {
   if (isJumping || isCrouching) return;
@@ -24,8 +21,6 @@ function jump() {
   const gravity = 0.6;
 
   const jumpInterval = setInterval(() => {
-    const effectiveGravity = isCrouching ? 1.2 : gravity;
-
     if (position <= 0 && velocity < 0) {
       clearInterval(jumpInterval);
       position = 0;
@@ -34,7 +29,6 @@ function jump() {
     } else {
       position += velocity;
       velocity -= gravity;
-      velocity -= effectiveGravity;
       dino.style.bottom = position + 'px';
     }
   }, 20);
@@ -51,26 +45,9 @@ function crouch(start) {
   }
 }
 
-// Helper: check gap before spawning
-function canSpawn() {
-  if (obstacles.length === 0) return true;
-  const last = obstacles[obstacles.length - 1];
-  const lastLeft = parseFloat(last.style.left);
-  const lastWidth = last.offsetWidth;
-  const lastRight = lastLeft + lastWidth;
-  const gap = 800 - lastRight; // distance from last obstacle’s right edge to spawn point
-  return gap >= MIN_GAP_PX;
-}
-
 // Generate obstacles
 function generateObstacle() {
   if (isGameOver) return;
-
-  // enforce spacing
-  if (!canSpawn()) {
-    setTimeout(generateObstacle, 100); // retry shortly until gap is big enough
-    return;
-  }
 
   const obstacle = document.createElement('div');
   obstacle.classList.add('obstacle');
@@ -88,7 +65,6 @@ function generateObstacle() {
   obstacles.push(obstacle);
 
   moveObstacle(obstacle);
-
   const nextSpawn = Math.random() * 2000 + 1500;
   setTimeout(generateObstacle, nextSpawn);
 }
